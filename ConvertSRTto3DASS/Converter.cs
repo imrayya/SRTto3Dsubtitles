@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -23,11 +23,45 @@ namespace ConvertSRTto3DASS
             File.WriteAllText(Path.GetFileNameWithoutExtension(args[0]) + ".ass", finished);
         }
 
+        //Is there a better way to do it?
+        private static Dictionary<Regex, string> regexReplacementDict =
+            new Dictionary<Regex, string> {
+                {new Regex("<b>"), "{\\b1}"},
+                {new Regex("(</b>)"),"{\\b0}"},
+                {new Regex("(<i>)"),"{\\i1}"},
+                {new Regex("(</i>)"),"{\\i0}"},
+                {new Regex("(<u>)"),"{\\u1}" },
+                {new Regex("(</u>)"),"{\\u0}"},
+                {new Regex("(</font>)"),"{\\c&HFFFFFF&}"} //TODO custom colors. When you add custom colors, it needs to change this too
 
-        //TODO: Add formatting for the string. Have to look into the SSA v4.00+ specification on how to handle it
+            };
+        private static Regex color = new Regex("<font color=\"#.{6}\">");
+
+        //TODO Add positional data to the formatting. 
         private static string ChangeFormatting(string line)
         {
-            return "";
+            foreach (var tuple in regexReplacementDict)
+            {
+                line = tuple.Key.Replace(line, tuple.Value);
+            }
+
+            while (color.IsMatch(line))
+            {
+                var match = color.Match(line);
+                string str_match = match.Value;
+                var color_str = str_match.Substring(14, 6); //RGB value in HEX
+
+                //ASS uses RGB value, but in reverse order so got to reverse it
+                var char_array = color_str.ToCharArray();
+                Array.Reverse(char_array);
+                color_str = new string(char_array);
+
+                line = color.Replace(line, "{\\c&" + color_str + "&}");
+
+                
+            }
+
+            return removeFormatting(line);
         }
 
 
@@ -60,7 +94,7 @@ namespace ConvertSRTto3DASS
 
         }
 
-        
+
         private static string ConvertTimeStamp(string timeStamp)
         {
             //Change double digit hour (for .srt) to single digit hour marker (for .ass) <- very crude
@@ -179,7 +213,7 @@ namespace ConvertSRTto3DASS
             var timestamp_end = "";
             var subtitiles = "";
             string srt = File.ReadAllText(file);
-            
+
             //Which dialog we are on (sanity check)
             int i = 1;
 
@@ -195,7 +229,7 @@ namespace ConvertSRTto3DASS
                 if (line == "" | line == "\r")
                 {
                     j = 0;
-                    converted.Add(new Tuple<string, string, string, string>(timestamp_start, timestamp_end, removeFormatting(subtitiles), ""));
+                    converted.Add(new Tuple<string, string, string, string>(timestamp_start, timestamp_end, ChangeFormatting(subtitiles), ""));
                     subtitiles = "";
                     continue;
                 }
@@ -206,6 +240,7 @@ namespace ConvertSRTto3DASS
                     if (k != i)
                     {
                         Console.Error.WriteLine("Something went wrong");
+                        Console.Error.WriteLine("Something wrong on line:" + linecounter);
                         System.Environment.Exit(-1);
                     }
                     else
