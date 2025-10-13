@@ -1,6 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 //SSA/ASS specification v4+ http://www.tcax.org/docs/ass-specs.htm
@@ -20,7 +22,7 @@ namespace ConvertSRTto3DASS
             var events = ProcessSubs(extracted);
 
             var finished = "[Script Info]\n" + header + "\n\n[V4+ Styles]\n" + style + "\n\n[Events]\n" + events;
-            File.WriteAllText(Path.GetFileNameWithoutExtension(args[0]) + ".ass", finished);
+            File.WriteAllText(Path.GetFileNameWithoutExtension(args[0]) + ".ass", finished, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         }
 
         //Is there a better way to do it?
@@ -201,6 +203,21 @@ namespace ConvertSRTto3DASS
             return scriptinfo;
         }
 
+        private static string ReadTextSmart(string path)
+        {
+            // Try reading as UTF-8 with BOM detection
+            using (var reader = new StreamReader(path, Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
+            {
+                string text = reader.ReadToEnd();
+
+                // If UTF-8 decoding produced replacement character <?>, fallback to CP1252
+                if (text.Contains('\uFFFD')) 
+                    text = File.ReadAllText(path, Encoding.GetEncoding(1252));
+
+                return text;
+            }
+        }
+
         //start, end, text, format <- tuple format
         //Note - I want to change the tuple as format bit is useless as the data is carried in the text field for both .srt and .ass
         //but I could reprepose it for any positional data
@@ -212,7 +229,7 @@ namespace ConvertSRTto3DASS
             var timestamp_start = "";
             var timestamp_end = "";
             var subtitiles = "";
-            string srt = File.ReadAllText(file);
+            string srt = ReadTextSmart(file);
 
             //Which dialog we are on (sanity check)
             int i = 1;
@@ -237,7 +254,7 @@ namespace ConvertSRTto3DASS
                 if (int.TryParse(line, out int k))
                 {
                     //Event number doesn't match counted event number. Mismatch means something probably went wrong
-                    if (k != i)
+                    if (k != i && j == 1)
                     {
                         Console.Error.WriteLine("Something went wrong");
                         Console.Error.WriteLine("Something wrong on line:" + linecounter);
@@ -263,7 +280,7 @@ namespace ConvertSRTto3DASS
                     if (subtitiles == "")
                     {
                         subtitiles = line;
-                        subtitiles.Replace("\\.r", "");
+                        subtitiles = subtitiles.Replace("\\.r", "");
                     }
                     else
                     {
