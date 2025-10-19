@@ -1,6 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 //SSA/ASS specification v4+ http://www.tcax.org/docs/ass-specs.htm
@@ -20,7 +22,7 @@ namespace ConvertSRTto3DASS
             var events = ProcessSubs(extracted);
 
             var finished = "[Script Info]\n" + header + "\n\n[V4+ Styles]\n" + style + "\n\n[Events]\n" + events;
-            File.WriteAllText(Path.GetFileNameWithoutExtension(args[0]) + ".ass", finished);
+            File.WriteAllText(Path.GetFileNameWithoutExtension(args[0]) + ".ass", finished, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         }
 
         //Is there a better way to do it?
@@ -201,6 +203,21 @@ namespace ConvertSRTto3DASS
             return scriptinfo;
         }
 
+        private static string ReadTextSmart(string path)
+        {
+            // Try reading as UTF-8 with BOM detection
+            using (var reader = new StreamReader(path, Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
+            {
+                string text = reader.ReadToEnd();
+
+                // If UTF-8 decoding produced replacement character <?>, fallback to CP1252
+                if (text.Contains('\uFFFD')) 
+                    text = File.ReadAllText(path, Encoding.GetEncoding(1252));
+
+                return text;
+            }
+        }
+
         //start, end, text, format <- tuple format
         //Note - I want to change the tuple as format bit is useless as the data is carried in the text field for both .srt and .ass
         //but I could reprepose it for any positional data
@@ -211,15 +228,12 @@ namespace ConvertSRTto3DASS
 
             var timestamp_start = "";
             var timestamp_end = "";
-            var subtitiles = "";
-            string srt = File.ReadAllText(file);
+            var subtitles = "";
+            string srt = ReadTextSmart(file);
 
-            //Which dialog we are on (sanity check)
-            int i = 1;
-
-            //Whether to extract the time stamp or not
-            int j = 0; //TODO: Change to a bool 
-
+            
+            int dialogNumber = 1; // Which dialog we are on
+            int dialogLine = 0; // Which line of the dialog block we are on 
             int linecounter = 0; //Where we are in the .srt, meant for debugging
 
             foreach (string line in srt.Split('\n'))
@@ -228,46 +242,45 @@ namespace ConvertSRTto3DASS
                 //Empty line assumes that the next line with event number thus previous dialog is finished and can be saved
                 if (line == "" | line == "\r")
                 {
-                    j = 0;
-                    converted.Add(new Tuple<string, string, string, string>(timestamp_start, timestamp_end, ChangeFormatting(subtitiles), ""));
-                    subtitiles = "";
+                    dialogLine = 0;
+                    converted.Add(new Tuple<string, string, string, string>(timestamp_start, timestamp_end, ChangeFormatting(subtitles), ""));
+                    subtitles = "";
                     continue;
                 }
-                //Try to parse the event/dialog number
-                if (int.TryParse(line, out int k))
+
+                //Handle the first line
+                if (dialogLine == 0)
                 {
-                    //Event number doesn't match counted event number. Mismatch means something probably went wrong
-                    if (k != i)
+                    //Check that the line is an actual number
+                    if (int.TryParse(line, out int k) && k == dialogNumber)
                     {
-                        Console.Error.WriteLine("Something went wrong");
-                        Console.Error.WriteLine("Something wrong on line:" + linecounter);
-                        System.Environment.Exit(-1);
-                    }
-                    else
-                    {
-                        i++;
-                        j++;
+                        dialogNumber++;
+                        dialogLine++;
                         continue;
                     }
+
+                    Console.Error.WriteLine("Something went wrong");
+                    Console.Error.WriteLine("Something wrong on line:" + linecounter);
+                    System.Environment.Exit(-1);
                 }
 
-                //If it a timestamp is expected, extract it
-                if (j == 1)
+                //Timestamp extraction
+                if (dialogLine == 1)
                 {
                     timestamp_start = line.Substring(0, 12);
                     timestamp_end = line.Substring(17, 12);
-                    j++;
+                    dialogLine++;
                 }
                 else
                 {
-                    if (subtitiles == "")
+                    if (subtitles == "")
                     {
-                        subtitiles = line;
-                        subtitiles.Replace("\\.r", "");
+                        subtitles = line;
+                        subtitles = subtitles.Replace("\\.r", "");
                     }
                     else
                     {
-                        subtitiles = subtitiles + "\\n" + line;
+                        subtitles = subtitles + "\\N" + line;
                     }
                 }
             }
