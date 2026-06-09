@@ -5,41 +5,227 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-//SSA/ASS specification v4+ http://www.tcax.org/docs/ass-specs.htm
-//SRT (SubRip) specification https://en.wikipedia.org/wiki/SubRip
+// SSA/ASS specification v4+ http://www.tcax.org/docs/ass-specs.htm
+// SRT (SubRip) specification https://en.wikipedia.org/wiki/SubRip
 
 namespace ConvertSRTto3DASS
 {
     class Converter
     {
+        private enum StereoMode
+        {
+            SBS,
+            OU
+        }
+
+        private class Options
+        {
+            public string InputPath { get; set; }
+            public string OutputPath { get; set; }
+            public StereoMode Mode { get; set; } = StereoMode.SBS;
+            public int ResX { get; set; } = 384;
+            public int ResY { get; set; } = 288;
+            public int FontSize { get; set; } = 16;
+        }
 
         static void Main(string[] args)
         {
+            try
+            {
+                var options = ParseArguments(args);
 
-            var extracted = ExtractSubFromSRT(args[0]);
-            var style = CreateStandardStyle();
-            var header = CreateHeader(args[0]);
-            var events = ProcessSubs(extracted);
+                if (options == null)
+                    return;
 
-            var finished = "[Script Info]\n" + header + "\n\n[V4+ Styles]\n" + style + "\n\n[Events]\n" + events;
-            File.WriteAllText(Path.GetFileNameWithoutExtension(args[0]) + ".ass", finished, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                if (!File.Exists(options.InputPath))
+                {
+                    Console.Error.WriteLine("Input file not found: " + options.InputPath);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(options.OutputPath))
+                {
+                    options.OutputPath = Path.Combine(
+                        Path.GetDirectoryName(options.InputPath) ?? "",
+                        Path.GetFileNameWithoutExtension(options.InputPath) + ".ass");
+                }
+
+                Console.WriteLine("Input:     " + options.InputPath);
+                Console.WriteLine("Output:    " + options.OutputPath);
+                Console.WriteLine("Mode:      " + options.Mode);
+                Console.WriteLine("Resolution:" + " " + options.ResX + "x" + options.ResY);
+                Console.WriteLine("Font size: " + options.FontSize);
+
+                var extracted = ExtractSubFromSRT(options.InputPath);
+                Console.WriteLine("Subtitle blocks parsed: " + extracted.Count);
+
+                var style = CreateStandardStyle(options.Mode, options.FontSize);
+                var header = CreateHeader(options.InputPath, options.ResY, options.ResX);
+                var eventsText = ProcessSubs(extracted, options.Mode);
+
+                var finished =
+                    "[Script Info]\n" +
+                    header +
+                    "\n\n[V4+ Styles]\n" +
+                    style +
+                    "\n\n[Events]\n" +
+                    eventsText;
+
+                File.WriteAllText(options.OutputPath, finished, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+                Console.WriteLine("Conversion complete.");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("ERROR: " + ex.Message);
+                Console.Error.WriteLine(ex.ToString());
+            }
         }
 
-        //Is there a better way to do it?
+        private static Options ParseArguments(string[] args)
+        {
+            if (args == null || args.Length == 0)
+            {
+                PrintUsage();
+                return null;
+            }
+
+            var options = new Options();
+            int i = 0;
+
+            // First non-option argument is input file
+            if (args[0].StartsWith("--"))
+            {
+                Console.Error.WriteLine("First argument must be the input .srt file.");
+                PrintUsage();
+                return null;
+            }
+
+            options.InputPath = args[0];
+            i = 1;
+
+            while (i < args.Length)
+            {
+                string arg = args[i].Trim();
+
+                switch (arg.ToLowerInvariant())
+                {
+                    case "--mode":
+                        EnsureValueExists(args, i, "--mode");
+                        options.Mode = ParseStereoMode(args[i + 1]);
+                        i += 2;
+                        break;
+
+                    case "--resx":
+                        EnsureValueExists(args, i, "--resx");
+                        options.ResX = ParsePositiveInt(args[i + 1], "--resx");
+                        i += 2;
+                        break;
+
+                    case "--resy":
+                        EnsureValueExists(args, i, "--resy");
+                        options.ResY = ParsePositiveInt(args[i + 1], "--resy");
+                        i += 2;
+                        break;
+
+                    case "--fontsize":
+                        EnsureValueExists(args, i, "--fontsize");
+                        options.FontSize = ParsePositiveInt(args[i + 1], "--fontsize");
+                        i += 2;
+                        break;
+
+                    case "--output":
+                        EnsureValueExists(args, i, "--output");
+                        options.OutputPath = args[i + 1];
+                        i += 2;
+                        break;
+
+                    case "--help":
+                    case "-h":
+                    case "/?":
+                        PrintUsage();
+                        return null;
+
+                    default:
+                        throw new ArgumentException("Unknown argument: " + arg);
+                }
+            }
+
+            return options;
+        }
+
+        private static void EnsureValueExists(string[] args, int index, string optionName)
+        {
+            if (index + 1 >= args.Length || args[index + 1].StartsWith("--"))
+                throw new ArgumentException("Missing value for " + optionName);
+        }
+
+        private static int ParsePositiveInt(string value, string optionName)
+        {
+            if (!int.TryParse(value, out int parsed) || parsed <= 0)
+                throw new ArgumentException("Invalid value for " + optionName + ": " + value);
+
+            return parsed;
+        }
+
+        private static void PrintUsage()
+        {
+            Console.WriteLine("Usage:");
+            Console.WriteLine("  ConvertSRTto3DASS.exe <input.srt> [options]");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --mode sbs|ou");
+            Console.WriteLine("  --resx <number>");
+            Console.WriteLine("  --resy <number>");
+            Console.WriteLine("  --fontsize <number>");
+            Console.WriteLine("  --output <path>");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode sbs");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode ou --resx 384 --resy 288");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode sbs --fontsize 20");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode ou --output ""movie_ou.ass""");
+        }
+
+        private static StereoMode ParseStereoMode(string mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode))
+                return StereoMode.SBS;
+
+            switch (mode.Trim().ToLowerInvariant())
+            {
+                case "sbs":
+                case "sidebyside":
+                case "side-by-side":
+                    return StereoMode.SBS;
+
+                case "ou":
+                case "overunder":
+                case "over-under":
+                case "tab":
+                case "topandbottom":
+                case "top-and-bottom":
+                    return StereoMode.OU;
+
+                default:
+                    throw new ArgumentException(
+                        "Invalid 3D type '" + mode + "'. Valid values are: sbs, ou");
+            }
+        }
+
         private static Dictionary<Regex, string> regexReplacementDict =
             new Dictionary<Regex, string> {
-                {new Regex("<b>"), "{\\b1}"},
-                {new Regex("(</b>)"),"{\\b0}"},
-                {new Regex("(<i>)"),"{\\i1}"},
-                {new Regex("(</i>)"),"{\\i0}"},
-                {new Regex("(<u>)"),"{\\u1}" },
-                {new Regex("(</u>)"),"{\\u0}"},
-                {new Regex("(</font>)"),"{\\c&HFFFFFF&}"} //TODO custom colors. When you add custom colors, it needs to change this too
-
+                { new Regex("<b>", RegexOptions.IgnoreCase), "{\\b1}" },
+                { new Regex("</b>", RegexOptions.IgnoreCase), "{\\b0}" },
+                { new Regex("<i>", RegexOptions.IgnoreCase), "{\\i1}" },
+                { new Regex("</i>", RegexOptions.IgnoreCase), "{\\i0}" },
+                { new Regex("<u>", RegexOptions.IgnoreCase), "{\\u1}" },
+                { new Regex("</u>", RegexOptions.IgnoreCase), "{\\u0}" },
+                { new Regex("</font>", RegexOptions.IgnoreCase), "{\\c&HFFFFFF&}" }
             };
-        private static Regex color = new Regex("<font color=\"#.{6}\">");
 
-        //TODO Add positional data to the formatting. 
+        private static Regex color = new Regex("<font color=\"#([0-9A-Fa-f]{6})\">", RegexOptions.IgnoreCase);
+
         private static string ChangeFormatting(string line)
         {
             foreach (var tuple in regexReplacementDict)
@@ -50,68 +236,69 @@ namespace ConvertSRTto3DASS
             while (color.IsMatch(line))
             {
                 var match = color.Match(line);
-                string str_match = match.Value;
-                var color_str = str_match.Substring(14, 6); //RGB value in HEX
+                string rgb = match.Groups[1].Value; // RRGGBB
 
-                //ASS uses RGB value, but in reverse order so got to reverse it
-                var char_array = color_str.ToCharArray();
-                Array.Reverse(char_array);
-                color_str = new string(char_array);
+                string rr = rgb.Substring(0, 2);
+                string gg = rgb.Substring(2, 2);
+                string bb = rgb.Substring(4, 2);
 
-                line = color.Replace(line, "{\\c&" + color_str + "&}");
+                // ASS expects BBGGRR
+                string assColor = bb + gg + rr;
 
-                
+                line = color.Replace(line, "{\\c&H" + assColor + "&}", 1);
             }
 
-            return removeFormatting(line);
+            return RemoveFormatting(line);
         }
 
+        private static Regex reg = new Regex("<.+?>|(\\r)", RegexOptions.IgnoreCase);
 
-        //TODO: remove this and use the above method instead where it actually uses the formatting of the file
-        private static Regex reg = new Regex("<.+?>|(\\r)"); //Used to remove html tags used and line breaks
-        private static string removeFormatting(string line)
+        private static string RemoveFormatting(string line)
         {
             var replacement = reg.Replace(line, "");
             return replacement;
-
         }
 
-
-        private static string ProcessSubs(List<Tuple<string, string, string, string>> srt)
+        private static string ProcessSubs(List<Tuple<string, string, string, string>> srt, StereoMode mode)
         {
             string endResult = "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
+
+            string style1 = mode == StereoMode.SBS ? "Right" : "Top";
+            string style2 = mode == StereoMode.SBS ? "Left" : "Bottom";
+
             foreach (var events in srt)
             {
                 var start = ConvertTimeStamp(events.Item1);
                 var end = ConvertTimeStamp(events.Item2);
 
-                //First layer, for the right eye
-                var line = "Dialogue: " + 0 + "," + start + "," + end + ",Right,,0,0,0,," + events.Item3 + "\n";
-                //Second layer, for the left eye
-                line += "Dialogue: " + 1 + "," + start + "," + end + ",Left,,0,0,0,," + events.Item3;
+                var line = "Dialogue: 0," + start + "," + end + "," + style1 + ",,0,0,0,," + events.Item3 + "\n";
+                line += "Dialogue: 1," + start + "," + end + "," + style2 + ",,0,0,0,," + events.Item3;
 
                 endResult += line + "\n";
             }
+
             return endResult;
-
         }
-
 
         private static string ConvertTimeStamp(string timeStamp)
         {
-            //Change double digit hour (for .srt) to single digit hour marker (for .ass) <- very crude
             var tmp = timeStamp.Substring(1);
-
-            //Change thousands of a second hunderdth second
-            tmp = tmp.Substring(0, tmp.Length - 1);//TODO: Do actual rounding
+            tmp = tmp.Substring(0, tmp.Length - 1);
             return tmp.Replace(",", ".");
         }
 
-        //TODO: Make this human readable
-        //TODO: Add adjustable parameters
-        private static string CreateStandardStyle()
+        private static string CreateStandardStyle(StereoMode stereoMode, int fontSize)
         {
-            string style = "Format: " +
+            if (stereoMode == StereoMode.SBS)
+                return CreateSbsStyle(fontSize);
+
+            return CreateOuStyle(fontSize);
+        }
+
+        private static string CreateSbsStyle(int fontSize)
+        {
+            string style =
+                "Format: " +
                 "Name, " +
                 "Fontname, " +
                 "Fontsize, " +
@@ -139,7 +326,7 @@ namespace ConvertSRTto3DASS
                 "Style: " +
                 "Right," +
                 "Arial," +
-                "16," +
+                fontSize + "," +
                 "&Hffffff," +
                 "&Hffffff," +
                 "&H0," +
@@ -161,11 +348,10 @@ namespace ConvertSRTto3DASS
                 "10," +
                 "0\n" +
 
-
                 "Style: " +
                 "Left," +
                 "Arial," +
-                "16," +
+                fontSize + "," +
                 "&Hffffff," +
                 "&Hffffff," +
                 "&H0," +
@@ -183,108 +369,181 @@ namespace ConvertSRTto3DASS
                 "0," +
                 "2," +
                 "0," +
-                "192 ," +
+                "192," +
                 "10," +
                 "0";
+
             return style;
         }
 
-        //TODO: create a system where you can actually give paramaters to it
+        private static string CreateOuStyle(int fontSize)
+        {
+            string style =
+                "Format: " +
+                "Name, " +
+                "Fontname, " +
+                "Fontsize, " +
+                "PrimaryColour, " +
+                "SecondaryColour, " +
+                "OutlineColour, " +
+                "BackColour, " +
+                "Bold, " +
+                "Italic, " +
+                "Underline, " +
+                "StrikeOut, " +
+                "ScaleX, " +
+                "ScaleY, " +
+                "Spacing, " +
+                "Angle, " +
+                "BorderStyle, " +
+                "Outline, " +
+                "Shadow, " +
+                "Alignment, " +
+                "MarginL, " +
+                "MarginR, " +
+                "MarginV, " +
+                "Encoding\n" +
+
+                "Style: " +
+                "Top," +
+                "Arial," +
+                fontSize + "," +
+                "&Hffffff," +
+                "&Hffffff," +
+                "&H0," +
+                "&H0," +
+                "0," +
+                "0," +
+                "0," +
+                "0," +
+                "100," +
+                "100," +
+                "0," +
+                "0," +
+                "1," +
+                "1," +
+                "0," +
+                "2," +
+                "0," +
+                "0," +
+                "154," +
+                "0\n" +
+
+                "Style: " +
+                "Bottom," +
+                "Arial," +
+                fontSize + "," +
+                "&Hffffff," +
+                "&Hffffff," +
+                "&H0," +
+                "&H0," +
+                "0," +
+                "0," +
+                "0," +
+                "0," +
+                "100," +
+                "100," +
+                "0," +
+                "0," +
+                "1," +
+                "1," +
+                "0," +
+                "2," +
+                "0," +
+                "0," +
+                "10," +
+                "0";
+
+            return style;
+        }
+
         private static string CreateHeader(string file, int resY = 288, int resX = 384)
         {
             var name = Path.GetFileNameWithoutExtension(file);
-            string scriptinfo = "; Generated by ConvertSRTto3D\n" +
+            string scriptinfo =
+                "; Generated by ConvertSRTto3D\n" +
                 "Title: " + name + "\n" +
                 "ScriptType: v4.00+\n" +
                 "Collisions: Normal\n" +
                 "PlayResX: " + resX + "\n" +
                 "PlayResY: " + resY + "\n" +
                 "ScaledBorderAndShadow: yes";
+
             return scriptinfo;
         }
 
         private static string ReadTextSmart(string path)
         {
-            // Try reading as UTF-8 with BOM detection
             using (var reader = new StreamReader(path, Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
             {
                 string text = reader.ReadToEnd();
 
-                // If UTF-8 decoding produced replacement character <?>, fallback to CP1252
-                if (text.Contains('\uFFFD')) 
+                if (text.Contains('\uFFFD'))
                     text = File.ReadAllText(path, Encoding.GetEncoding(1252));
 
                 return text;
             }
         }
 
-        //start, end, text, format <- tuple format
-        //Note - I want to change the tuple as format bit is useless as the data is carried in the text field for both .srt and .ass
-        //but I could reprepose it for any positional data
         private static List<Tuple<string, string, string, string>> ExtractSubFromSRT(string file)
         {
-
-            var converted = new List<Tuple<string, string, string, string>>();
-
-            var timestamp_start = "";
-            var timestamp_end = "";
-            var subtitles = "";
+            var results = new List<Tuple<string, string, string, string>>();
             string srt = ReadTextSmart(file);
 
-            
-            int dialogNumber = 1; // Which dialog we are on
-            int dialogLine = 0; // Which line of the dialog block we are on 
-            int linecounter = 0; //Where we are in the .srt, meant for debugging
+            srt = srt.Replace("\r\n", "\n").Replace("\r", "\n");
 
-            foreach (string line in srt.Split('\n'))
+            var blocks = Regex.Split(srt.Trim(), @"\n\s*\n");
+
+            int expectedDialogNumber = 1;
+
+            foreach (var block in blocks)
             {
-                linecounter++;
-                //Empty line assumes that the next line with event number thus previous dialog is finished and can be saved
-                if (line == "" | line == "\r")
+                var lines = block
+                    .Split(new[] { '\n' }, StringSplitOptions.None)
+                    .Select(l => l.Trim())
+                    .Where(l => l.Length > 0)
+                    .ToList();
+
+                if (lines.Count < 3)
+                    continue;
+
+                if (!int.TryParse(lines[0], out int dialogNumber))
                 {
-                    dialogLine = 0;
-                    converted.Add(new Tuple<string, string, string, string>(timestamp_start, timestamp_end, ChangeFormatting(subtitles), ""));
-                    subtitles = "";
+                    Console.Error.WriteLine($"Skipping malformed block: expected subtitle number, got [{lines[0]}]");
                     continue;
                 }
 
-                //Handle the first line
-                if (dialogLine == 0)
+                if (dialogNumber != expectedDialogNumber)
                 {
-                    //Check that the line is an actual number
-                    if (int.TryParse(line, out int k) && k == dialogNumber)
-                    {
-                        dialogNumber++;
-                        dialogLine++;
-                        continue;
-                    }
+                    Console.Error.WriteLine(
+                        $"Warning: expected subtitle number {expectedDialogNumber}, but found {dialogNumber}.");
+                    expectedDialogNumber = dialogNumber;
+                }
+                expectedDialogNumber++;
 
-                    Console.Error.WriteLine("Something went wrong");
-                    Console.Error.WriteLine("Something wrong on line:" + linecounter);
-                    System.Environment.Exit(-1);
+                var timeMatch = Regex.Match(
+                    lines[1],
+                    @"^(?<start>\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(?<end>\d{2}:\d{2}:\d{2},\d{3})$");
+
+                if (!timeMatch.Success)
+                {
+                    Console.Error.WriteLine($"Skipping malformed timestamp line: [{lines[1]}]");
+                    continue;
                 }
 
-                //Timestamp extraction
-                if (dialogLine == 1)
-                {
-                    timestamp_start = line.Substring(0, 12);
-                    timestamp_end = line.Substring(17, 12);
-                    dialogLine++;
-                }
-                else
-                {
-                    if (subtitles == "")
-                    {
-                        subtitles = line;
-                        subtitles = subtitles.Replace("\\.r", "");
-                    }
-                    else
-                    {
-                        subtitles = subtitles + "\\N" + line;
-                    }
-                }
+                string timestampStart = timeMatch.Groups["start"].Value;
+                string timestampEnd = timeMatch.Groups["end"].Value;
+
+                string subtitleText = string.Join("\\N", lines.Skip(2));
+
+                results.Add(new Tuple<string, string, string, string>(
+                    timestampStart,
+                    timestampEnd,
+                    ChangeFormatting(subtitleText),
+                    ""));
             }
-            return converted;
+
+            return results;
         }
     }
 }
