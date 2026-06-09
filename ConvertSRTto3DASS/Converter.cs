@@ -10,12 +10,13 @@ using System.Text.RegularExpressions;
 
 namespace ConvertSRTto3DASS
 {
-    class Converter
+    public class Converter
     {
         private enum StereoMode
         {
             SBS,
-            OU
+            OU,
+            RG  //Experimental
         }
 
         private class Options
@@ -26,9 +27,10 @@ namespace ConvertSRTto3DASS
             public int ResX { get; set; } = 384;
             public int ResY { get; set; } = 288;
             public int FontSize { get; set; } = 16;
+            public int OffsetX { get; set; } = 4; // used for RG anaglyph
         }
 
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
             try
             {
@@ -50,18 +52,19 @@ namespace ConvertSRTto3DASS
                         Path.GetFileNameWithoutExtension(options.InputPath) + ".ass");
                 }
 
-                Console.WriteLine("Input:     " + options.InputPath);
-                Console.WriteLine("Output:    " + options.OutputPath);
-                Console.WriteLine("Mode:      " + options.Mode);
-                Console.WriteLine("Resolution:" + " " + options.ResX + "x" + options.ResY);
-                Console.WriteLine("Font size: " + options.FontSize);
+                Console.WriteLine("Input:      " + options.InputPath);
+                Console.WriteLine("Output:     " + options.OutputPath);
+                Console.WriteLine("Mode:       " + options.Mode);
+                Console.WriteLine("Resolution: " + options.ResX + "x" + options.ResY);
+                Console.WriteLine("Font size:  " + options.FontSize);
+                Console.WriteLine("OffsetX:    " + options.OffsetX);
 
                 var extracted = ExtractSubFromSRT(options.InputPath);
                 Console.WriteLine("Subtitle blocks parsed: " + extracted.Count);
 
                 var style = CreateStandardStyle(options.Mode, options.FontSize);
                 var header = CreateHeader(options.InputPath, options.ResY, options.ResX);
-                var eventsText = ProcessSubs(extracted, options.Mode);
+                var eventsText = ProcessSubs(extracted, options);
 
                 var finished =
                     "[Script Info]\n" +
@@ -93,7 +96,6 @@ namespace ConvertSRTto3DASS
             var options = new Options();
             int i = 0;
 
-            // First non-option argument is input file
             if (args[0].StartsWith("--"))
             {
                 Console.Error.WriteLine("First argument must be the input .srt file.");
@@ -140,6 +142,12 @@ namespace ConvertSRTto3DASS
                         i += 2;
                         break;
 
+                    case "--offsetx":
+                        EnsureValueExists(args, i, "--offsetx");
+                        options.OffsetX = ParseNonNegativeInt(args[i + 1], "--offsetx");
+                        i += 2;
+                        break;
+
                     case "--help":
                     case "-h":
                     case "/?":
@@ -168,23 +176,32 @@ namespace ConvertSRTto3DASS
             return parsed;
         }
 
+        private static int ParseNonNegativeInt(string value, string optionName)
+        {
+            if (!int.TryParse(value, out int parsed) || parsed < 0)
+                throw new ArgumentException("Invalid value for " + optionName + ": " + value);
+
+            return parsed;
+        }
+
         private static void PrintUsage()
         {
             Console.WriteLine("Usage:");
             Console.WriteLine("  ConvertSRTto3DASS.exe <input.srt> [options]");
             Console.WriteLine();
             Console.WriteLine("Options:");
-            Console.WriteLine("  --mode sbs|ou");
+            Console.WriteLine("  --mode sbs|ou|rg");
             Console.WriteLine("  --resx <number>");
             Console.WriteLine("  --resy <number>");
             Console.WriteLine("  --fontsize <number>");
+            Console.WriteLine("  --offsetx <number>   (used for rg mode)");
             Console.WriteLine("  --output <path>");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode sbs");
             Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode ou --resx 384 --resy 288");
-            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode sbs --fontsize 20");
-            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode ou --output ""movie_ou.ass""");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode rg --offsetx 4");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode rg --fontsize 20 --output ""movie_rg.ass""");
         }
 
         private static StereoMode ParseStereoMode(string mode)
@@ -207,9 +224,16 @@ namespace ConvertSRTto3DASS
                 case "top-and-bottom":
                     return StereoMode.OU;
 
+                case "rg":
+                case "redgreen":
+                case "red-green":
+                case "anaglyph":
+                case "anaglyph-rg":
+                    return StereoMode.RG;
+
                 default:
                     throw new ArgumentException(
-                        "Invalid 3D type '" + mode + "'. Valid values are: sbs, ou");
+                        "Invalid 3D type '" + mode + "'. Valid values are: sbs, ou, rg");
             }
         }
 
@@ -259,22 +283,42 @@ namespace ConvertSRTto3DASS
             return replacement;
         }
 
-        private static string ProcessSubs(List<Tuple<string, string, string, string>> srt, StereoMode mode)
+        private static string ProcessSubs(List<Tuple<string, string, string, string>> srt, Options options)
         {
             string endResult = "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
-
-            string style1 = mode == StereoMode.SBS ? "Right" : "Top";
-            string style2 = mode == StereoMode.SBS ? "Left" : "Bottom";
 
             foreach (var events in srt)
             {
                 var start = ConvertTimeStamp(events.Item1);
                 var end = ConvertTimeStamp(events.Item2);
+                var text = events.Item3;
 
-                var line = "Dialogue: 0," + start + "," + end + "," + style1 + ",,0,0,0,," + events.Item3 + "\n";
-                line += "Dialogue: 1," + start + "," + end + "," + style2 + ",,0,0,0,," + events.Item3;
+                if (options.Mode == StereoMode.SBS)
+                {
+                    var line = "Dialogue: 0," + start + "," + end + ",Right,,0,0,0,," + text + "\n";
+                    line += "Dialogue: 1," + start + "," + end + ",Left,,0,0,0,," + text;
+                    endResult += line + "\n";
+                }
+                else if (options.Mode == StereoMode.OU)
+                {
+                    var line = "Dialogue: 0," + start + "," + end + ",Top,,0,0,0,," + text + "\n";
+                    line += "Dialogue: 1," + start + "," + end + ",Bottom,,0,0,0,," + text;
+                    endResult += line + "\n";
+                }
+                else if (options.Mode == StereoMode.RG)
+                {
+                    int centerX = options.ResX / 2;
+                    int y = options.ResY - 18; // near bottom
+                    int redX = centerX - options.OffsetX;
+                    int greenX = centerX + options.OffsetX;
 
-                endResult += line + "\n";
+                    string redText = "{\\an2\\pos(" + redX + "," + y + ")}" + text;
+                    string greenText = "{\\an2\\pos(" + greenX + "," + y + ")}" + text;
+
+                    var line = "Dialogue: 0," + start + "," + end + ",RedEye,,0,0,0,," + redText + "\n";
+                    line += "Dialogue: 1," + start + "," + end + ",GreenEye,,0,0,0,," + greenText;
+                    endResult += line + "\n";
+                }
             }
 
             return endResult;
@@ -289,10 +333,17 @@ namespace ConvertSRTto3DASS
 
         private static string CreateStandardStyle(StereoMode stereoMode, int fontSize)
         {
-            if (stereoMode == StereoMode.SBS)
-                return CreateSbsStyle(fontSize);
-
-            return CreateOuStyle(fontSize);
+            switch (stereoMode)
+            {
+                case StereoMode.SBS:
+                    return CreateSbsStyle(fontSize);
+                case StereoMode.OU:
+                    return CreateOuStyle(fontSize);
+                case StereoMode.RG:
+                    return CreateRgStyle(fontSize);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(stereoMode));
+            }
         }
 
         private static string CreateSbsStyle(int fontSize)
@@ -327,10 +378,10 @@ namespace ConvertSRTto3DASS
                 "Right," +
                 "Arial," +
                 fontSize + "," +
-                "&Hffffff," +
-                "&Hffffff," +
-                "&H0," +
-                "&H0," +
+                "&HFFFFFF," +
+                "&HFFFFFF," +
+                "&H000000," +
+                "&H000000," +
                 "0," +
                 "0," +
                 "0," +
@@ -352,10 +403,10 @@ namespace ConvertSRTto3DASS
                 "Left," +
                 "Arial," +
                 fontSize + "," +
-                "&Hffffff," +
-                "&Hffffff," +
-                "&H0," +
-                "&H0," +
+                "&HFFFFFF," +
+                "&HFFFFFF," +
+                "&H000000," +
+                "&H000000," +
                 "0," +
                 "0," +
                 "0," +
@@ -408,10 +459,10 @@ namespace ConvertSRTto3DASS
                 "Top," +
                 "Arial," +
                 fontSize + "," +
-                "&Hffffff," +
-                "&Hffffff," +
-                "&H0," +
-                "&H0," +
+                "&HFFFFFF," +
+                "&HFFFFFF," +
+                "&H000000," +
+                "&H000000," +
                 "0," +
                 "0," +
                 "0," +
@@ -433,10 +484,94 @@ namespace ConvertSRTto3DASS
                 "Bottom," +
                 "Arial," +
                 fontSize + "," +
-                "&Hffffff," +
-                "&Hffffff," +
-                "&H0," +
-                "&H0," +
+                "&HFFFFFF," +
+                "&HFFFFFF," +
+                "&H000000," +
+                "&H000000," +
+                "0," +
+                "0," +
+                "0," +
+                "0," +
+                "100," +
+                "100," +
+                "0," +
+                "0," +
+                "1," +
+                "1," +
+                "0," +
+                "2," +
+                "0," +
+                "0," +
+                "10," +
+                "0";
+
+            return style;
+        }
+
+        private static string CreateRgStyle(int fontSize)
+        {
+            string style =
+                "Format: " +
+                "Name, " +
+                "Fontname, " +
+                "Fontsize, " +
+                "PrimaryColour, " +
+                "SecondaryColour, " +
+                "OutlineColour, " +
+                "BackColour, " +
+                "Bold, " +
+                "Italic, " +
+                "Underline, " +
+                "StrikeOut, " +
+                "ScaleX, " +
+                "ScaleY, " +
+                "Spacing, " +
+                "Angle, " +
+                "BorderStyle, " +
+                "Outline, " +
+                "Shadow, " +
+                "Alignment, " +
+                "MarginL, " +
+                "MarginR, " +
+                "MarginV, " +
+                "Encoding\n" +
+
+                // ASS color format is BBGGRR
+                // Red = &H0000FF
+                "Style: " +
+                "RedEye," +
+                "Arial," +
+                fontSize + "," +
+                "&H0000FF," +
+                "&H0000FF," +
+                "&H000000," +
+                "&H000000," +
+                "0," +
+                "0," +
+                "0," +
+                "0," +
+                "100," +
+                "100," +
+                "0," +
+                "0," +
+                "1," +
+                "1," +
+                "0," +
+                "2," +
+                "0," +
+                "0," +
+                "10," +
+                "0\n" +
+
+                // Green = &H00FF00
+                "Style: " +
+                "GreenEye," +
+                "Arial," +
+                fontSize + "," +
+                "&H00FF00," +
+                "&H00FF00," +
+                "&H000000," +
+                "&H000000," +
                 "0," +
                 "0," +
                 "0," +
