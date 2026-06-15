@@ -1,20 +1,67 @@
-﻿using System;
+﻿using ConvertSRTto3DASS;
+using System;
 using System.IO;
 using System.Windows.Forms;
-using ConvertSRTto3DASS;
+using static ConvertSRTto3DASS.Converter;
 
 namespace ConvertSRTto3DASSGUI
 {
     public partial class Form1 : Form
     {
+        // Keep these in sync with Converter.cs defaults
+        private const int DefaultResX = Converter.ConverterDefaults.ResX;//1280
+        private const int DefaultResY = 720;
+        private const int DefaultBaseResX = 1280;
+        private const int DefaultBaseResY = 720;
+        private const int DefaultFontSize = 16;
+        private const int DefaultOffsetX = 4;
+        private const int DefaultBottomOffset = 18;
+        private const int DefaultSbsSideMargin = 192;
+        private const int DefaultOuTopMargin = 154;
+        private const int DefaultVerticalMargin = 10;
+
         public Form1()
         {
             InitializeComponent();
+            InitializeDefaults();
 
             if (cmbMode.Items.Count > 0)
                 cmbMode.SelectedIndex = 0;
 
             UpdateModeUI();
+        }
+
+        private void InitializeDefaults()
+        {
+            txtInputFile.Text = string.Empty;
+            txtOutputFile.Text = string.Empty;
+
+            nudResX.Value = ConverterDefaults.ResX;
+            nudResY.Value = ConverterDefaults.ResY;
+            nudBaseResX.Value = ConverterDefaults.BaseResX;
+            nudBaseResY.Value = ConverterDefaults.BaseResY;
+            nudFontSize.Value = ConverterDefaults.FontSize;
+            nudOffsetX.Value = ConverterDefaults.OffsetX;
+            nudBottomOffset.Value = ConverterDefaults.BottomOffset;
+            nudSbsSideMargin.Value = ConverterDefaults.SbsSideMargin;
+            nudOuTopMargin.Value = ConverterDefaults.OuTopMargin;
+            nudVerticalMargin.Value = ConverterDefaults.VerticalMargin;
+
+            switch (ConverterDefaults.DefaultMode.ToLowerInvariant())
+            {
+                case "sbs":
+                    cmbMode.SelectedIndex = 0;
+                    break;
+                case "ou":
+                    cmbMode.SelectedIndex = 1;
+                    break;
+                case "rg":
+                    cmbMode.SelectedIndex = 2;
+                    break;
+                default:
+                    cmbMode.SelectedIndex = 0;
+                    break;
+            }
         }
 
         private void btnBrowseInput_Click(object sender, EventArgs e)
@@ -84,7 +131,7 @@ namespace ConvertSRTto3DASSGUI
 
                 string inputPath = txtInputFile.Text.Trim();
                 string outputPath = txtOutputFile.Text.Trim();
-                string mode = cmbMode.SelectedItem?.ToString() ?? "sbs";
+                string mode = GetSelectedModeValue();
 
                 if (string.IsNullOrWhiteSpace(inputPath))
                 {
@@ -106,26 +153,43 @@ namespace ConvertSRTto3DASSGUI
 
                 int resX = (int)nudResX.Value;
                 int resY = (int)nudResY.Value;
+                int baseResX = (int)nudBaseResX.Value;
+                int baseResY = (int)nudBaseResY.Value;
                 int fontSize = (int)nudFontSize.Value;
                 int offsetX = (int)nudOffsetX.Value;
+                int bottomOffset = (int)nudBottomOffset.Value;
+                int sbsSideMargin = (int)nudSbsSideMargin.Value;
+                int ouTopMargin = (int)nudOuTopMargin.Value;
+                int verticalMargin = (int)nudVerticalMargin.Value;
 
                 AppendStatus("Starting conversion...");
                 AppendStatus("Input: " + inputPath);
                 AppendStatus("Output: " + outputPath);
                 AppendStatus("Mode: " + mode);
                 AppendStatus("Resolution: " + resX + "x" + resY);
+                AppendStatus("Base Resolution: " + baseResX + "x" + baseResY);
                 AppendStatus("Font Size: " + fontSize);
                 AppendStatus("OffsetX: " + offsetX);
+                AppendStatus("BottomOffset: " + bottomOffset);
+                AppendStatus("SbsSideMargin: " + sbsSideMargin);
+                AppendStatus("OuTopMargin: " + ouTopMargin);
+                AppendStatus("VerticalMargin: " + verticalMargin);
 
-                ConvertSRTto3DASS.Converter.Main(new[]
+                Converter.Main(new[]
                 {
-                    txtInputFile.Text,
-                    "--mode", GetSelectedModeValue(),
-                    "--resx", nudResX.Value.ToString(),
-                    "--resy", nudResY.Value.ToString(),
-                    "--fontsize", nudFontSize.Value.ToString(),
-                    "--offsetx", nudOffsetX.Value.ToString(),
-                    "--output", txtOutputFile.Text
+                    inputPath,
+                    "--mode", mode,
+                    "--resx", resX.ToString(),
+                    "--resy", resY.ToString(),
+                    "--baseresx", baseResX.ToString(),
+                    "--baseresy", baseResY.ToString(),
+                    "--fontsize", fontSize.ToString(),
+                    "--offsetx", offsetX.ToString(),
+                    "--bottomoffset", bottomOffset.ToString(),
+                    "--sbssidemargin", sbsSideMargin.ToString(),
+                    "--outopmargin", ouTopMargin.ToString(),
+                    "--verticalmargin", verticalMargin.ToString(),
+                    "--output", outputPath
                 });
 
                 AppendStatus("Conversion complete.");
@@ -140,11 +204,26 @@ namespace ConvertSRTto3DASSGUI
 
         private void UpdateModeUI()
         {
-            string mode = cmbMode.SelectedItem?.ToString() ?? "sbs";
-            bool isRg = mode.Equals("rg", StringComparison.OrdinalIgnoreCase);
+            string mode = GetSelectedModeValue();
+
+            bool isSbs = mode == "sbs";
+            bool isOu = mode == "ou";
+            bool isRg = mode == "rg";
 
             nudOffsetX.Enabled = isRg;
             lblOffsetX.Enabled = isRg;
+
+            nudBottomOffset.Enabled = isRg;
+            lblBottomOffset.Enabled = isRg;
+
+            nudSbsSideMargin.Enabled = isSbs;
+            lblSbsSideMargin.Enabled = isSbs;
+
+            nudOuTopMargin.Enabled = isOu;
+            lblOuTopMargin.Enabled = isOu;
+
+            nudVerticalMargin.Enabled = true;
+            lblVerticalMargin.Enabled = true;
         }
 
         private void AppendStatus(string message)
@@ -153,6 +232,10 @@ namespace ConvertSRTto3DASSGUI
                 txtStatus.AppendText(Environment.NewLine);
 
             txtStatus.AppendText(message);
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
         }
     }
 }

@@ -16,19 +16,66 @@ namespace ConvertSRTto3DASS
         {
             SBS,
             OU,
-            RG  //Experimental
+            RG // Experimental
+        }
+
+        public static class ConverterDefaults
+        {
+            /// <summary>
+            ///720 as default is arbitary,it's my favorite resolution for space saving and most mobile 3d viewing doesn't benefit from much higher (IE google cardboard or Meta Quest Headset).
+            /// </summary>
+            public const int ResX = 1280;
+            public const int ResY = 720;
+
+            public const int BaseResX = 1280;
+            public const int BaseResY = 720;
+
+            public const int FontSize = 16;
+            public const int OffsetX = 4;
+            public const int BottomOffset = 18;
+            public const int SbsSideMargin = 640;
+            public const int OuTopMargin = 385;
+            public const int VerticalMargin = 25;
+
+            public const string DefaultMode = "sbs";
         }
 
         private class Options
         {
             public string InputPath { get; set; }
             public string OutputPath { get; set; }
+
             public StereoMode Mode { get; set; } = StereoMode.SBS;
-            public int ResX { get; set; } = 384;
-            public int ResY { get; set; } = 288;
-            public int FontSize { get; set; } = 16;
-            public int OffsetX { get; set; } = 4; // used for RG anaglyph
+
+            public int ResX { get; set; } = ConverterDefaults.ResX;
+            public int ResY { get; set; } = ConverterDefaults.ResY;
+            public int BaseResX { get; set; } = ConverterDefaults.BaseResX;
+            public int BaseResY { get; set; } = ConverterDefaults.BaseResY;
+            public int FontSize { get; set; } = ConverterDefaults.FontSize;
+            public int OffsetX { get; set; } = ConverterDefaults.OffsetX;
+            public int BottomOffset { get; set; } = ConverterDefaults.BottomOffset;
+            public int SbsSideMargin { get; set; } = ConverterDefaults.SbsSideMargin;
+            public int OuTopMargin { get; set; } = ConverterDefaults.OuTopMargin;
+            public int VerticalMargin { get; set; } = ConverterDefaults.VerticalMargin;
         }
+
+        private static readonly Dictionary<Regex, string> RegexReplacementDict =
+            new Dictionary<Regex, string>
+            {
+                { new Regex("<b>", RegexOptions.IgnoreCase), "{\\b1}" },
+                { new Regex("</b>", RegexOptions.IgnoreCase), "{\\b0}" },
+                { new Regex("<i>", RegexOptions.IgnoreCase), "{\\i1}" },
+                { new Regex("</i>", RegexOptions.IgnoreCase), "{\\i0}" },
+                { new Regex("<u>", RegexOptions.IgnoreCase), "{\\u1}" },
+                { new Regex("</u>", RegexOptions.IgnoreCase), "{\\u0}" },
+                { new Regex("</font>", RegexOptions.IgnoreCase), "{\\c&HFFFFFF&}" }
+            };
+
+        private static readonly Regex ColorRegex =
+            new Regex("<font color=\"#([0-9A-Fa-f]{6})\">", RegexOptions.IgnoreCase);
+
+        private static readonly Regex RemoveFormattingRegex =
+            new Regex("<.+?>|(\\r)", RegexOptions.IgnoreCase);
 
         public static void Main(string[] args)
         {
@@ -48,21 +95,26 @@ namespace ConvertSRTto3DASS
                 if (string.IsNullOrWhiteSpace(options.OutputPath))
                 {
                     options.OutputPath = Path.Combine(
-                        Path.GetDirectoryName(options.InputPath) ?? "",
+                        Path.GetDirectoryName(options.InputPath) ?? string.Empty,
                         Path.GetFileNameWithoutExtension(options.InputPath) + ".ass");
                 }
 
-                Console.WriteLine("Input:      " + options.InputPath);
-                Console.WriteLine("Output:     " + options.OutputPath);
-                Console.WriteLine("Mode:       " + options.Mode);
-                Console.WriteLine("Resolution: " + options.ResX + "x" + options.ResY);
-                Console.WriteLine("Font size:  " + options.FontSize);
-                Console.WriteLine("OffsetX:    " + options.OffsetX);
+                Console.WriteLine("Input:           " + options.InputPath);
+                Console.WriteLine("Output:          " + options.OutputPath);
+                Console.WriteLine("Mode:            " + options.Mode);
+                Console.WriteLine("Resolution:      " + options.ResX + "x" + options.ResY);
+                Console.WriteLine("Base Res:        " + options.BaseResX + "x" + options.BaseResY);
+                Console.WriteLine("Font size:       " + options.FontSize);
+                Console.WriteLine("OffsetX:         " + options.OffsetX);
+                Console.WriteLine("BottomOffset:    " + options.BottomOffset);
+                Console.WriteLine("SbsSideMargin:   " + options.SbsSideMargin);
+                Console.WriteLine("OuTopMargin:     " + options.OuTopMargin);
+                Console.WriteLine("VerticalMargin:  " + options.VerticalMargin);
 
                 var extracted = ExtractSubFromSRT(options.InputPath);
                 Console.WriteLine("Subtitle blocks parsed: " + extracted.Count);
 
-                var style = CreateStandardStyle(options.Mode, options.FontSize);
+                var style = CreateStandardStyle(options);
                 var header = CreateHeader(options.InputPath, options.ResY, options.ResX);
                 var eventsText = ProcessSubs(extracted, options);
 
@@ -74,7 +126,10 @@ namespace ConvertSRTto3DASS
                     "\n\n[Events]\n" +
                     eventsText;
 
-                File.WriteAllText(options.OutputPath, finished, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                File.WriteAllText(
+                    options.OutputPath,
+                    finished,
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
                 Console.WriteLine("Conversion complete.");
             }
@@ -130,21 +185,57 @@ namespace ConvertSRTto3DASS
                         i += 2;
                         break;
 
+                    case "--baseresx":
+                        EnsureValueExists(args, i, "--baseresx");
+                        options.BaseResX = ParsePositiveInt(args[i + 1], "--baseresx");
+                        i += 2;
+                        break;
+
+                    case "--baseresy":
+                        EnsureValueExists(args, i, "--baseresy");
+                        options.BaseResY = ParsePositiveInt(args[i + 1], "--baseresy");
+                        i += 2;
+                        break;
+
                     case "--fontsize":
                         EnsureValueExists(args, i, "--fontsize");
                         options.FontSize = ParsePositiveInt(args[i + 1], "--fontsize");
                         i += 2;
                         break;
 
-                    case "--output":
-                        EnsureValueExists(args, i, "--output");
-                        options.OutputPath = args[i + 1];
-                        i += 2;
-                        break;
-
                     case "--offsetx":
                         EnsureValueExists(args, i, "--offsetx");
                         options.OffsetX = ParseNonNegativeInt(args[i + 1], "--offsetx");
+                        i += 2;
+                        break;
+
+                    case "--bottomoffset":
+                        EnsureValueExists(args, i, "--bottomoffset");
+                        options.BottomOffset = ParseNonNegativeInt(args[i + 1], "--bottomoffset");
+                        i += 2;
+                        break;
+
+                    case "--sbssidemargin":
+                        EnsureValueExists(args, i, "--sbssidemargin");
+                        options.SbsSideMargin = ParseNonNegativeInt(args[i + 1], "--sbssidemargin");
+                        i += 2;
+                        break;
+
+                    case "--outopmargin":
+                        EnsureValueExists(args, i, "--outopmargin");
+                        options.OuTopMargin = ParseNonNegativeInt(args[i + 1], "--outopmargin");
+                        i += 2;
+                        break;
+
+                    case "--verticalmargin":
+                        EnsureValueExists(args, i, "--verticalmargin");
+                        options.VerticalMargin = ParseNonNegativeInt(args[i + 1], "--verticalmargin");
+                        i += 2;
+                        break;
+
+                    case "--output":
+                        EnsureValueExists(args, i, "--output");
+                        options.OutputPath = args[i + 1];
                         i += 2;
                         break;
 
@@ -193,15 +284,23 @@ namespace ConvertSRTto3DASS
             Console.WriteLine("  --mode sbs|ou|rg");
             Console.WriteLine("  --resx <number>");
             Console.WriteLine("  --resy <number>");
+            Console.WriteLine("  --baseresx <number>      (scaling reference width, default 1280)");
+            Console.WriteLine("  --baseresy <number>      (scaling reference height, default 720)");
             Console.WriteLine("  --fontsize <number>");
-            Console.WriteLine("  --offsetx <number>   (used for rg mode)");
+            Console.WriteLine("  --offsetx <number>       (RG eye separation)");
+            Console.WriteLine("  --bottomoffset <number>  (RG bottom offset)");
+            Console.WriteLine("  --sbssidemargin <number> (SBS side margin)");
+            Console.WriteLine("  --outopmargin <number>   (OU top subtitle margin)");
+            Console.WriteLine("  --verticalmargin <number> (general vertical/bottom margin)");
             Console.WriteLine("  --output <path>");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode sbs");
-            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode ou --resx 384 --resy 288");
-            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode rg --offsetx 4");
-            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode rg --fontsize 20 --output ""movie_rg.ass""");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode ou --resx 1280 --resy 720");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --mode rg --offsetx 6 --bottomoffset 24");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --resx 1920 --resy 1080 --baseresx 1280 --baseresy 720");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --sbssidemargin 220 --verticalmargin 16");
+            Console.WriteLine(@"  ConvertSRTto3DASS.exe ""movie.srt"" --outopmargin 180 --fontsize 20 --output ""movie_custom.ass""");
         }
 
         private static StereoMode ParseStereoMode(string mode)
@@ -237,29 +336,31 @@ namespace ConvertSRTto3DASS
             }
         }
 
-        private static Dictionary<Regex, string> regexReplacementDict =
-            new Dictionary<Regex, string> {
-                { new Regex("<b>", RegexOptions.IgnoreCase), "{\\b1}" },
-                { new Regex("</b>", RegexOptions.IgnoreCase), "{\\b0}" },
-                { new Regex("<i>", RegexOptions.IgnoreCase), "{\\i1}" },
-                { new Regex("</i>", RegexOptions.IgnoreCase), "{\\i0}" },
-                { new Regex("<u>", RegexOptions.IgnoreCase), "{\\u1}" },
-                { new Regex("</u>", RegexOptions.IgnoreCase), "{\\u0}" },
-                { new Regex("</font>", RegexOptions.IgnoreCase), "{\\c&HFFFFFF&}" }
-            };
+        private static int ScaleX(int value, Options options)
+        {
+            return (int)Math.Round(value * (options.ResX / (double)options.BaseResX));
+        }
 
-        private static Regex color = new Regex("<font color=\"#([0-9A-Fa-f]{6})\">", RegexOptions.IgnoreCase);
+        private static int ScaleY(int value, Options options)
+        {
+            return (int)Math.Round(value * (options.ResY / (double)options.BaseResY));
+        }
+
+        private static int ScaleFont(int fontSize, Options options)
+        {
+            return Math.Max(1, ScaleY(fontSize, options));
+        }
 
         private static string ChangeFormatting(string line)
         {
-            foreach (var tuple in regexReplacementDict)
+            foreach (var tuple in RegexReplacementDict)
             {
                 line = tuple.Key.Replace(line, tuple.Value);
             }
 
-            while (color.IsMatch(line))
+            while (ColorRegex.IsMatch(line))
             {
-                var match = color.Match(line);
+                var match = ColorRegex.Match(line);
                 string rgb = match.Groups[1].Value; // RRGGBB
 
                 string rr = rgb.Substring(0, 2);
@@ -269,18 +370,15 @@ namespace ConvertSRTto3DASS
                 // ASS expects BBGGRR
                 string assColor = bb + gg + rr;
 
-                line = color.Replace(line, "{\\c&H" + assColor + "&}", 1);
+                line = ColorRegex.Replace(line, "{\\c&H" + assColor + "&}", 1);
             }
 
             return RemoveFormatting(line);
         }
 
-        private static Regex reg = new Regex("<.+?>|(\\r)", RegexOptions.IgnoreCase);
-
         private static string RemoveFormatting(string line)
         {
-            var replacement = reg.Replace(line, "");
-            return replacement;
+            return RemoveFormattingRegex.Replace(line, "");
         }
 
         private static string ProcessSubs(List<Tuple<string, string, string, string>> srt, Options options)
@@ -308,9 +406,12 @@ namespace ConvertSRTto3DASS
                 else if (options.Mode == StereoMode.RG)
                 {
                     int centerX = options.ResX / 2;
-                    int y = options.ResY - 18; // near bottom
-                    int redX = centerX - options.OffsetX;
-                    int greenX = centerX + options.OffsetX;
+                    int scaledBottomOffset = ScaleY(options.BottomOffset, options);
+                    int y = options.ResY - scaledBottomOffset;
+
+                    int scaledOffsetX = ScaleX(options.OffsetX, options);
+                    int redX = centerX - scaledOffsetX;
+                    int greenX = centerX + scaledOffsetX;
 
                     string redText = "{\\an2\\pos(" + redX + "," + y + ")}" + text;
                     string greenText = "{\\an2\\pos(" + greenX + "," + y + ")}" + text;
@@ -331,23 +432,31 @@ namespace ConvertSRTto3DASS
             return tmp.Replace(",", ".");
         }
 
-        private static string CreateStandardStyle(StereoMode stereoMode, int fontSize)
+        private static string CreateStandardStyle(Options options)
         {
-            switch (stereoMode)
+            int scaledFontSize = ScaleFont(options.FontSize, options);
+
+            switch (options.Mode)
             {
                 case StereoMode.SBS:
-                    return CreateSbsStyle(fontSize);
+                    return CreateSbsStyle(scaledFontSize, options);
+
                 case StereoMode.OU:
-                    return CreateOuStyle(fontSize);
+                    return CreateOuStyle(scaledFontSize, options);
+
                 case StereoMode.RG:
-                    return CreateRgStyle(fontSize);
+                    return CreateRgStyle(scaledFontSize, options);
+
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(stereoMode));
+                    throw new ArgumentOutOfRangeException(nameof(options.Mode));
             }
         }
 
-        private static string CreateSbsStyle(int fontSize)
+        private static string CreateSbsStyle(int fontSize, Options options)
         {
+            int sideMargin = ScaleX(options.SbsSideMargin, options);
+            int verticalMargin = ScaleY(options.VerticalMargin, options);
+
             string style =
                 "Format: " +
                 "Name, " +
@@ -394,9 +503,9 @@ namespace ConvertSRTto3DASS
                 "1," +
                 "0," +
                 "2," +
-                "192," +
+                sideMargin + "," +
                 "0," +
-                "10," +
+                verticalMargin + "," +
                 "0\n" +
 
                 "Style: " +
@@ -420,15 +529,18 @@ namespace ConvertSRTto3DASS
                 "0," +
                 "2," +
                 "0," +
-                "192," +
-                "10," +
+                sideMargin + "," +
+                verticalMargin + "," +
                 "0";
 
             return style;
         }
 
-        private static string CreateOuStyle(int fontSize)
+        private static string CreateOuStyle(int fontSize, Options options)
         {
+            int bottomMargin = ScaleY(options.VerticalMargin, options);
+            int topMargin = ScaleY(options.OuTopMargin, options);
+
             string style =
                 "Format: " +
                 "Name, " +
@@ -477,7 +589,7 @@ namespace ConvertSRTto3DASS
                 "2," +
                 "0," +
                 "0," +
-                "154," +
+                topMargin + "," +
                 "0\n" +
 
                 "Style: " +
@@ -502,14 +614,16 @@ namespace ConvertSRTto3DASS
                 "2," +
                 "0," +
                 "0," +
-                "10," +
+                bottomMargin + "," +
                 "0";
 
             return style;
         }
 
-        private static string CreateRgStyle(int fontSize)
+        private static string CreateRgStyle(int fontSize, Options options)
         {
+            int verticalMargin = ScaleY(options.VerticalMargin, options);
+
             string style =
                 "Format: " +
                 "Name, " +
@@ -560,7 +674,7 @@ namespace ConvertSRTto3DASS
                 "2," +
                 "0," +
                 "0," +
-                "10," +
+                verticalMargin + "," +
                 "0\n" +
 
                 // Green = &H00FF00
@@ -586,16 +700,17 @@ namespace ConvertSRTto3DASS
                 "2," +
                 "0," +
                 "0," +
-                "10," +
+                verticalMargin + "," +
                 "0";
 
             return style;
         }
 
-        private static string CreateHeader(string file, int resY = 288, int resX = 384)
+        private static string CreateHeader(string file, int resY = 720, int resX = 1280)
         {
             var name = Path.GetFileNameWithoutExtension(file);
-            string scriptinfo =
+
+            string scriptInfo =
                 "; Generated by ConvertSRTto3D\n" +
                 "Title: " + name + "\n" +
                 "ScriptType: v4.00+\n" +
@@ -604,7 +719,7 @@ namespace ConvertSRTto3DASS
                 "PlayResY: " + resY + "\n" +
                 "ScaledBorderAndShadow: yes";
 
-            return scriptinfo;
+            return scriptInfo;
         }
 
         private static string ReadTextSmart(string path)
@@ -654,6 +769,7 @@ namespace ConvertSRTto3DASS
                         $"Warning: expected subtitle number {expectedDialogNumber}, but found {dialogNumber}.");
                     expectedDialogNumber = dialogNumber;
                 }
+
                 expectedDialogNumber++;
 
                 var timeMatch = Regex.Match(
@@ -668,7 +784,6 @@ namespace ConvertSRTto3DASS
 
                 string timestampStart = timeMatch.Groups["start"].Value;
                 string timestampEnd = timeMatch.Groups["end"].Value;
-
                 string subtitleText = string.Join("\\N", lines.Skip(2));
 
                 results.Add(new Tuple<string, string, string, string>(
