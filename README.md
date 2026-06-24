@@ -18,19 +18,25 @@ When watching 3D movies (Side-by-Side, Over-Under, Anaglyph), centered subtitles
 
 ## Usage
 
-### Command Line (CLI)
+The application runs in two modes — **GUI** (no arguments) and **CLI** (with arguments).
 
-**Drag and drop:**
+### GUI
 
-1. Drag and drop an `.srt` file onto `ConvertSRTto3DASS.exe`
-   - Uses default settings (SBS mode, 1280x720)
-2. The resulting `.ass` file will be saved in the same directory with the same name
+1. Launch `ConvertSRTto3DASS.exe` (or the Linux/macOS binary)
+2. Select your `.srt` input file
+3. Choose your 3D mode (SBS, OU, or Anaglyph)
+4. Adjust settings as needed
+5. Click **Convert**
 
-**Command line:**
+### Command Line
+
+Pass any argument to trigger CLI mode:
 
 ```
 ConvertSRTto3DASS.exe input.srt [options]
 ```
+
+Or drag and drop an `.srt` file onto the executable.
 
 Available options:
 
@@ -58,14 +64,6 @@ ConvertSRTto3DASS.exe movie.srt --mode ou --resx 1920 --resy 1080
 ConvertSRTto3DASS.exe movie.srt --mode rg --offsetx 6 --bottomoffset 24
 ```
 
-### GUI
-
-1. Launch `ConvertSRTto3DASSGUI.exe`
-2. Select your `.srt` input file
-3. Choose your 3D mode (SBS, OU, or Anaglyph)
-4. Adjust settings as needed
-5. Click **Convert**
-
 > **Note:** The GUI is experimental. Feedback and bug reports are welcome!
 
 ## Known Issues
@@ -75,8 +73,24 @@ ConvertSRTto3DASS.exe movie.srt --mode rg --offsetx 6 --bottomoffset 24
 
 ## Requirements
 
-- **Windows** — the GUI requires Windows (.NET Framework 4.8)
-- **CLI** — the core converter is a .NET Framework 4.8 console application
+- **.NET 8 SDK** — required to build
+- **Windows** — the GUI runs on Windows
+- **Linux/macOS** — the CLI runs cross-platform
+
+## Building
+
+```bash
+# Build all projects
+dotnet build
+
+# Publish CLI (cross-platform)
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r linux-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r osx-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+
+# Publish GUI (Windows only)
+dotnet publish ConvertSRTto3DASS.Gui -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+```
 
 ## License
 
