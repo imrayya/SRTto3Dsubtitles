@@ -9,9 +9,9 @@ Currently just a command line program to convert a .srt subtitle file to an .ass
 _Basically nothing right now_
 - [x] Convert a .srt to an .ass/.ssa
   - [x] For HSBS media 
-  - [ ] For **S**ide **B**y **S**ide (SBS) media 
-  - [ ] For **O**ver **U**nder (OU) media
-  - [ ] For Anaglyph 3D media (red and green media)
+  - [X] For **S**ide **B**y **S**ide (SBS) media 
+  - [X] For **O**ver **U**nder (OU) media
+  - [X] For Anaglyph 3D media (red and green media) - Warning Experimental
   - [ ] For traditionally media (pancake mode).
     - _I suggest to just use ffmpeg for this use case_
 - [x] Convert formatting of .srt subtitles to transfer to the converted version
@@ -20,9 +20,9 @@ _Basically nothing right now_
   - [ ] Font
   - [ ] Color
   - [ ] Position
-  - [ ] Margins
+  - [X] Margins
   - [ ] Encoding
-- [ ] Add a proper GUI
+- [X] Add a proper GUI
 - [ ] Any form of error handling or unit testing
 
 
