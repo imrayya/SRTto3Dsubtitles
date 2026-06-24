@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Company>imrayya</Company>
+    <Copyright>Copyright © imrayya 2021-2026</Copyright>
+    <AssemblyName>ConvertSRTto3DASS</AssemblyName>
+    <RootNamespace>ConvertSRTto3DASS</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ConvertSRTto3DASS.Core\ConvertSRTto3DASS.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace ConvertSRTto3DASSGUI.Properties
+namespace ConvertSRTto3DASS.Properties
 {
 
 
