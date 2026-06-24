@@ -8,9 +8,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("ConvertSRTto3DASSGUI")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Stanley Black & Decker inc.")]
-[assembly: AssemblyProduct("ConvertSRTto3DASSGUI")]
-[assembly: AssemblyCopyright("Copyright © Stanley Black & Decker inc. 2026")]
+[assembly: AssemblyCompany("imrayya")]
+[assembly: AssemblyProduct("SRTto3Dsubtitles")]
+[assembly: AssemblyCopyright("Copyright © imrayya 2021-2026")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
