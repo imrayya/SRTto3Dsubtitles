@@ -7,7 +7,7 @@ public partial class Form1 : Form
     public Form1()
     {
         InitializeComponent();
-        cmbMode.SelectedIndex = 0;
+        comboBox_Mode.SelectedIndex = 0;
         UpdateModeUI();
 
         // Drag-and-drop
@@ -22,15 +22,15 @@ public partial class Form1 : Form
             var files = (string[])e.Data!.GetData(DataFormats.FileDrop)!;
             if (files.Length > 0 && files[0].EndsWith(".srt", StringComparison.OrdinalIgnoreCase))
             {
-                txtInputFile.Text = files[0];
-                if (string.IsNullOrWhiteSpace(txtOutputFile.Text))
-                    txtOutputFile.Text = Path.ChangeExtension(files[0], ".ass");
+                textBox_InputFile.Text = files[0];
+                if (string.IsNullOrWhiteSpace(textBox_OutputFile.Text))
+                    textBox_OutputFile.Text = Path.ChangeExtension(files[0], ".ass");
                 AppendStatus("Dropped: " + files[0]);
             }
         };
     }
 
-    private void btnBrowseInput_Click(object sender, EventArgs e)
+    private void button_BrowseInput_Click(object sender, EventArgs e)
     {
         using var ofd = new OpenFileDialog
         {
@@ -40,16 +40,16 @@ public partial class Form1 : Form
 
         if (ofd.ShowDialog() == DialogResult.OK)
         {
-            txtInputFile.Text = ofd.FileName;
+            textBox_InputFile.Text = ofd.FileName;
 
-            if (string.IsNullOrWhiteSpace(txtOutputFile.Text))
-                txtOutputFile.Text = Path.ChangeExtension(ofd.FileName, ".ass");
+            if (string.IsNullOrWhiteSpace(textBox_OutputFile.Text))
+                textBox_OutputFile.Text = Path.ChangeExtension(ofd.FileName, ".ass");
 
             AppendStatus("Selected input file: " + ofd.FileName);
         }
     }
 
-    private void btnBrowseOutput_Click(object sender, EventArgs e)
+    private void button_BrowseOutput_Click(object sender, EventArgs e)
     {
         using var sfd = new SaveFileDialog
         {
@@ -58,36 +58,36 @@ public partial class Form1 : Form
             DefaultExt = "ass"
         };
 
-        if (!string.IsNullOrWhiteSpace(txtInputFile.Text))
+        if (!string.IsNullOrWhiteSpace(textBox_InputFile.Text))
         {
-            sfd.FileName = Path.GetFileNameWithoutExtension(txtInputFile.Text) + ".ass";
-            sfd.InitialDirectory = Path.GetDirectoryName(txtInputFile.Text);
+            sfd.FileName = Path.GetFileNameWithoutExtension(textBox_InputFile.Text) + ".ass";
+            sfd.InitialDirectory = Path.GetDirectoryName(textBox_InputFile.Text);
         }
 
         if (sfd.ShowDialog() == DialogResult.OK)
         {
-            txtOutputFile.Text = sfd.FileName;
+            textBox_OutputFile.Text = sfd.FileName;
             AppendStatus("Selected output file: " + sfd.FileName);
         }
     }
 
-    private void cmbMode_SelectedIndexChanged(object sender, EventArgs e) => UpdateModeUI();
+    private void comboBox_Mode_SelectedIndexChanged(object sender, EventArgs e) => UpdateModeUI();
 
     private string GetSelectedModeValue()
     {
-        var selected = cmbMode.SelectedItem?.ToString() ?? "sbs";
+        var selected = comboBox_Mode.SelectedItem?.ToString() ?? "sbs";
         var spaceIndex = selected.IndexOf(' ');
         return spaceIndex > 0 ? selected[..spaceIndex].Trim().ToLowerInvariant() : selected.Trim().ToLowerInvariant();
     }
 
-    private void btnConvert_Click(object sender, EventArgs e)
+    private void button_Convert_Click(object sender, EventArgs e)
     {
         try
         {
-            txtStatus.Clear();
+            textBox_Status.Clear();
 
-            var inputPath = txtInputFile.Text.Trim();
-            var outputPath = txtOutputFile.Text.Trim();
+            var inputPath = textBox_InputFile.Text.Trim();
+            var outputPath = textBox_OutputFile.Text.Trim();
             var mode = GetSelectedModeValue();
 
             if (string.IsNullOrWhiteSpace(inputPath))
@@ -105,7 +105,7 @@ public partial class Form1 : Form
             if (string.IsNullOrWhiteSpace(outputPath))
             {
                 outputPath = Path.ChangeExtension(inputPath, ".ass");
-                txtOutputFile.Text = outputPath;
+                textBox_OutputFile.Text = outputPath;
             }
 
             var options = new ConversionOptions
@@ -113,16 +113,16 @@ public partial class Form1 : Form
                 InputPath = inputPath,
                 OutputPath = outputPath,
                 Mode = mode,
-                ResX = (int)nudResX.Value,
-                ResY = (int)nudResY.Value,
-                BaseResX = (int)nudBaseResX.Value,
-                BaseResY = (int)nudBaseResY.Value,
-                FontSize = (int)nudFontSize.Value,
-                OffsetX = (int)nudOffsetX.Value,
-                BottomOffset = (int)nudBottomOffset.Value,
-                SbsSideMargin = (int)nudSbsSideMargin.Value,
-                OuTopMargin = (int)nudOuTopMargin.Value,
-                VerticalMargin = (int)nudVerticalMargin.Value
+                ResX = (int)numericUpDown_ResX.Value,
+                ResY = (int)numericUpDown_ResY.Value,
+                BaseResX = (int)numericUpDown_BaseResX.Value,
+                BaseResY = (int)numericUpDown_BaseResY.Value,
+                FontSize = (int)numericUpDown_FontSize.Value,
+                OffsetX = (int)numericUpDown_OffsetX.Value,
+                BottomOffset = (int)numericUpDown_BottomOffset.Value,
+                SbsSideMargin = (int)numericUpDown_SbsSideMargin.Value,
+                OuTopMargin = (int)numericUpDown_OuTopMargin.Value,
+                VerticalMargin = (int)numericUpDown_VerticalMargin.Value
             };
 
             AppendStatus("Starting conversion...");
@@ -150,21 +150,21 @@ public partial class Form1 : Form
     {
         var mode = GetSelectedModeValue();
 
-        nudOffsetX.Enabled = mode == "rg";
-        lblOffsetX.Enabled = mode == "rg";
-        nudBottomOffset.Enabled = mode == "rg";
-        lblBottomOffset.Enabled = mode == "rg";
-        nudSbsSideMargin.Enabled = mode == "sbs";
-        lblSbsSideMargin.Enabled = mode == "sbs";
-        nudOuTopMargin.Enabled = mode == "ou";
-        lblOuTopMargin.Enabled = mode == "ou";
+        numericUpDown_OffsetX.Enabled = mode == "rg";
+        label_OffsetX.Enabled = mode == "rg";
+        numericUpDown_BottomOffset.Enabled = mode == "rg";
+        label_BottomOffset.Enabled = mode == "rg";
+        numericUpDown_SbsSideMargin.Enabled = mode == "sbs";
+        label_SbsSideMargin.Enabled = mode == "sbs";
+        numericUpDown_OuTopMargin.Enabled = mode == "ou";
+        label_OuTopMargin.Enabled = mode == "ou";
     }
 
     private void AppendStatus(string message)
     {
-        if (txtStatus.TextLength > 0)
-            txtStatus.AppendText(Environment.NewLine);
+        if (textBox_Status.TextLength > 0)
+            textBox_Status.AppendText(Environment.NewLine);
 
-        txtStatus.AppendText(message);
+        textBox_Status.AppendText(message);
     }
 }
