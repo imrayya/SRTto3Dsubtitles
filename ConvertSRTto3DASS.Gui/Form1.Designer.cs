@@ -184,6 +184,7 @@ partial class Form1
         MinimumSize = new Size(1100, 650);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
+        AllowDrop = true;
         Text = "SRT to 3D Subtitles";
         Font = segoe;
         StartPosition = FormStartPosition.CenterScreen;

@@ -9,6 +9,25 @@ public partial class Form1 : Form
         InitializeComponent();
         cmbMode.SelectedIndex = 0;
         UpdateModeUI();
+
+        // Drag-and-drop
+        DragEnter += (s, e) =>
+        {
+            if (e.Data!.GetDataPresent(DataFormats.FileDrop))
+                e.Effect = DragDropEffects.Copy;
+        };
+
+        DragDrop += (s, e) =>
+        {
+            var files = (string[])e.Data!.GetData(DataFormats.FileDrop)!;
+            if (files.Length > 0 && files[0].EndsWith(".srt", StringComparison.OrdinalIgnoreCase))
+            {
+                txtInputFile.Text = files[0];
+                if (string.IsNullOrWhiteSpace(txtOutputFile.Text))
+                    txtOutputFile.Text = Path.ChangeExtension(files[0], ".ass");
+                AppendStatus("Dropped: " + files[0]);
+            }
+        };
     }
 
     private void btnBrowseInput_Click(object sender, EventArgs e)
