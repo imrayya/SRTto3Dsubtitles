@@ -97,6 +97,7 @@ partial class Form1
             DropDownStyle = ComboBoxStyle.DropDownList
         };
         comboBox_Mode.Items.AddRange(["SBS (Side-by-Side)", "OU (Over-Under)", "RG (Red-Green)"]);
+        comboBox_Mode.SelectedIndexChanged += comboBox_Mode_SelectedIndexChanged;
         groupBox_Mode.Controls.AddRange([label_Mode, comboBox_Mode]);
 
         // ---- Resolution section ----
@@ -167,6 +168,7 @@ partial class Form1
             ForeColor = Color.White,
             FlatAppearance = { BorderSize = 0 }
         };
+        button_Convert.Click += button_Convert_Click;
 
         // ---- Status ----
         textBox_Status = new TextBox
