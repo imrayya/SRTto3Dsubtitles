@@ -28,19 +28,27 @@ The application runs in two modes — **GUI** (no arguments) and **CLI** (with a
 4. Adjust settings as needed
 5. Click **Convert**
 
+> **Note:** The GUI is experimental. Feedback and bug reports are welcome!
+
 ### Command Line
 
-Pass any argument to trigger CLI mode:
+The CLI runs on **Windows, Linux, and macOS**.
 
-```
-ConvertSRTto3DASS.exe input.srt [options]
-```
+#### Drag and drop:
+1. Drag and drop an `.srt` file onto `ConvertSRTto3DASS`
+   - Uses default settings (SBS mode, 1280x720)
+2. The resulting `.ass` file will be saved in the same directory as the `.srt`
 
-Or drag and drop an `.srt` file onto the executable.
+#### Command line:
+ ```
 
-Available options:
+ ConvertSRTto3DASS.exe input.srt [options]
 
-```
+ ```
+
+##### Available options:
+ ```
+
 --mode sbs|ou|rg              3D mode (default: sbs)
 --resx <number>               Output width
 --resy <number>               Output height
@@ -54,17 +62,17 @@ Available options:
 --verticalmargin <number>     General vertical margin
 --output <path>               Output file path
 --help, -h, /?                Show help
-```
 
-Examples:
+ ```
+ 
+##### Examples:
+ ```
 
-```
-ConvertSRTto3DASS.exe movie.srt --mode sbs
-ConvertSRTto3DASS.exe movie.srt --mode ou --resx 1920 --resy 1080
-ConvertSRTto3DASS.exe movie.srt --mode rg --offsetx 6 --bottomoffset 24
-```
+ ConvertSRTto3DASS.exe movie.srt --mode sbs
+ ConvertSRTto3DASS.exe movie.srt --mode ou --resx 1920 --resy 1080
+ ConvertSRTto3DASS.exe movie.srt --mode rg --offsetx 6 --bottomoffset 24
 
-> **Note:** The GUI is experimental. Feedback and bug reports are welcome!
+ ```
 
 ## Known Issues
 
@@ -83,14 +91,21 @@ ConvertSRTto3DASS.exe movie.srt --mode rg --offsetx 6 --bottomoffset 24
 # Build all projects
 dotnet build
 
-# Publish CLI (cross-platform)
-dotnet publish ConvertSRTto3DASS.Cli -c Release -r linux-x64 --self-contained false -p:PublishSingleFile=true
-dotnet publish ConvertSRTto3DASS.Cli -c Release -r osx-x64 --self-contained false -p:PublishSingleFile=true
-dotnet publish ConvertSRTto3DASS.Cli -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+# Publish CLI (self-contained)
+## Linux x64
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+## OSX x64
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+## OSX arm64
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r osx-arm64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+## Windows x64
+dotnet publish ConvertSRTto3DASS.Cli -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 
-# Publish GUI (Windows only)
-dotnet publish ConvertSRTto3DASS.Gui -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
-```
+# Publish GUI (Windows x64 only, self-contained)
+dotnet publish ConvertSRTto3DASS.Gui -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+ ```
+
+ _Each publish produces a single .exe with no .dll sidecars._
 
 ## License
 
