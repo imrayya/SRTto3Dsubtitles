@@ -71,11 +71,13 @@ partial class Form1
             Size = new Size(1040, 80)
         };
         label_InputFile = new Label { Text = "Input SRT:", Font = segoe, Location = new Point(15, 25), AutoSize = true };
-        textBox_InputFile = new TextBox { Location = new Point(100, 22), Size = new Size(780, 23), ReadOnly = true };
+        textBox_InputFile = new TextBox { Location = new Point(100, 22), Size = new Size(780, 23) };
         button_BrowseInput = new Button { Text = "Browse...", Location = new Point(890, 20), Size = new Size(90, 25), Font = segoe, FlatStyle = FlatStyle.Flat };
+        button_BrowseInput.Click += button_BrowseInput_Click;
         label_OutputFile = new Label { Text = "Output ASS:", Font = segoe, Location = new Point(15, 55), AutoSize = true };
-        textBox_OutputFile = new TextBox { Location = new Point(100, 52), Size = new Size(780, 23), ReadOnly = true };
+        textBox_OutputFile = new TextBox { Location = new Point(100, 52), Size = new Size(780, 23) };
         button_BrowseOutput = new Button { Text = "Browse...", Location = new Point(890, 50), Size = new Size(90, 25), Font = segoe, FlatStyle = FlatStyle.Flat };
+        button_BrowseOutput.Click += button_BrowseOutput_Click;
         groupBox_File.Controls.AddRange([label_InputFile, textBox_InputFile, button_BrowseInput, label_OutputFile, textBox_OutputFile, button_BrowseOutput]);
 
         // ---- Mode section ----

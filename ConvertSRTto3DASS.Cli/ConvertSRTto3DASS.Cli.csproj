@@ -13,6 +13,9 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <StripSymbols>true</StripSymbols>
   </PropertyGroup>
 
   <ItemGroup>

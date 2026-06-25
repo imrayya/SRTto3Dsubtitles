@@ -16,6 +16,9 @@ public static class SrtConverter
 
     public static ConversionResult Convert(ConversionOptions options)
     {
+        // Register legacy codepage support (needed for CP1252, etc.)
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
         var srtText = ReadSrt(options.InputPath);
         var subtitles = ParseSrt(srtText);
         var header = CreateHeader(options);

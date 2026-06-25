@@ -4,19 +4,19 @@ namespace ConvertSRTto3DASS;
 
 internal static class Cli
 {
-    public static void Run(string[] args)
+    public static bool Run(string[] args)
     {
         if (args.Length == 0 || args[0] is "--help" or "-h" or "/?")
         {
             PrintUsage();
-            return;
+            return false;
         }
 
         var inputPath = args[0];
         if (!File.Exists(inputPath))
         {
             Console.Error.WriteLine($"Input file not found: {inputPath}");
-            return;
+            return true;
         }
 
         // Parse options
@@ -80,7 +80,7 @@ internal static class Cli
                     break;
                 default:
                     Console.Error.WriteLine($"Unknown argument: {args[i]}");
-                    return;
+                    return true;
             }
             i++;
         }
@@ -106,11 +106,13 @@ internal static class Cli
             var result = SrtConverter.Convert(options);
             Console.WriteLine($"Parsed:           {result.SubtitleCount} subtitle blocks");
             Console.WriteLine("Conversion complete.");
+            return false;
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"ERROR: {ex.Message}");
             Console.Error.WriteLine(ex.ToString());
+            return true;
         }
 
         string GetNextArg(int index) => index + 1 < args.Length ? args[index + 1] : throw new ArgumentException($"Missing value for {args[index]}");
