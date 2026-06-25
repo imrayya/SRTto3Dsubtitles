@@ -76,7 +76,6 @@ The CLI runs on **Windows, Linux, and macOS**.
 
 ## Known Issues
 
-- Plex Transcoder has issues with the converted subtitles. VLC works correctly.
 - Subtitle positional data from `.srt` files is stripped during conversion.
 
 ## Requirements
