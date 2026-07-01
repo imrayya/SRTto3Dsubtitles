@@ -26,7 +26,7 @@ jobs:
             -c Release -r linux-x64 --self-contained false \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -o publish/linux-x64/
-          mv publish/linux-x64/ConvertSRTto3DASS publish/linux-x64/ConvertSRTto3DASS-cli
+          mv publish/linux-x64/ConvertSRTto3DASS publish/linux-x64/ConvertSRTto3DASS-cli-linux-x64
 
       - name: Build CLI - macOS x64
         run: |
@@ -34,7 +34,7 @@ jobs:
             -c Release -r osx-x64 --self-contained false \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -o publish/osx-x64/
-          mv publish/osx-x64/ConvertSRTto3DASS publish/osx-x64/ConvertSRTto3DASS-cli
+          mv publish/osx-x64/ConvertSRTto3DASS publish/osx-x64/ConvertSRTto3DASS-cli-osx-x64
 
       - name: Build CLI - macOS arm64
         run: |
@@ -42,24 +42,24 @@ jobs:
             -c Release -r osx-arm64 --self-contained false \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -o publish/osx-arm64/
-          mv publish/osx-arm64/ConvertSRTto3DASS publish/osx-arm64/ConvertSRTto3DASS-cli
+          mv publish/osx-arm64/ConvertSRTto3DASS publish/osx-arm64/ConvertSRTto3DASS-cli-osx-arm64
 
       - name: Build CLI - Windows x64
         run: |
           dotnet publish ConvertSRTto3DASS.Cli \
             -c Release -r win-x64 --self-contained false \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-            -p:OutputType=Exe \
             -o publish/win-x64/
-          mv publish/win-x64/ConvertSRTto3DASS.exe publish/win-x64/ConvertSRTto3DASS-cli.exe
+          mv publish/win-x64/ConvertSRTto3DASS.exe publish/win-x64/ConvertSRTto3DASS-cli-win-x64.exe
 
       - name: Build GUI - Windows x64
         run: |
           dotnet publish ConvertSRTto3DASS.Gui \
             -c Release -r win-x64 --self-contained false \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableWindowsTargeting=true \
             -o publish/gui-win-x64/
-          mv publish/gui-win-x64/ConvertSRTto3DASS.exe publish/gui-win-x64/ConvertSRTto3DASS-gui.exe
+          mv publish/gui-win-x64/ConvertSRTto3DASS.exe publish/gui-win-x64/ConvertSRTto3DASS-gui-win-x64.exe
 
       # ---- Update (or create) the rolling draft release ----
       - name: Update Rolling Draft Release
@@ -71,8 +71,8 @@ jobs:
           name: "Draft (latest build)"
           body: "Latest binaries from commit ${{ github.sha }}. Edit tag, name, and notes before publishing."
           artifacts: |
-            publish/linux-x64/ConvertSRTto3DASS-cli
-            publish/osx-x64/ConvertSRTto3DASS-cli
-            publish/osx-arm64/ConvertSRTto3DASS-cli
-            publish/win-x64/ConvertSRTto3DASS-cli.exe
-            publish/gui-win-x64/ConvertSRTto3DASS-gui.exe
+            publish/linux-x64/ConvertSRTto3DASS-cli-linux-x64
+            publish/osx-x64/ConvertSRTto3DASS-cli-osx-x64
+            publish/osx-arm64/ConvertSRTto3DASS-cli-osx-arm64
+            publish/win-x64/ConvertSRTto3DASS-cli-win-x64.exe
+            publish/gui-win-x64/ConvertSRTto3DASS-gui-win-x64.exe
