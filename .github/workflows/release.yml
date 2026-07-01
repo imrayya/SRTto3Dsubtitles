@@ -1,0 +1,78 @@
+name: Build and Draft
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # ---- Build all 5 binaries (no version in filenames needed) ----
+      - name: Build CLI - Linux x64
+        run: |
+          dotnet publish ConvertSRTto3DASS.Cli \
+            -c Release -r linux-x64 --self-contained false \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/linux-x64/
+          mv publish/linux-x64/ConvertSRTto3DASS publish/linux-x64/ConvertSRTto3DASS-cli
+
+      - name: Build CLI - macOS x64
+        run: |
+          dotnet publish ConvertSRTto3DASS.Cli \
+            -c Release -r osx-x64 --self-contained false \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/osx-x64/
+          mv publish/osx-x64/ConvertSRTto3DASS publish/osx-x64/ConvertSRTto3DASS-cli
+
+      - name: Build CLI - macOS arm64
+        run: |
+          dotnet publish ConvertSRTto3DASS.Cli \
+            -c Release -r osx-arm64 --self-contained false \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/osx-arm64/
+          mv publish/osx-arm64/ConvertSRTto3DASS publish/osx-arm64/ConvertSRTto3DASS-cli
+
+      - name: Build CLI - Windows x64
+        run: |
+          dotnet publish ConvertSRTto3DASS.Cli \
+            -c Release -r win-x64 --self-contained false \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:OutputType=Exe \
+            -o publish/win-x64/
+          mv publish/win-x64/ConvertSRTto3DASS.exe publish/win-x64/ConvertSRTto3DASS-cli.exe
+
+      - name: Build GUI - Windows x64
+        run: |
+          dotnet publish ConvertSRTto3DASS.Gui \
+            -c Release -r win-x64 --self-contained false \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/gui-win-x64/
+          mv publish/gui-win-x64/ConvertSRTto3DASS.exe publish/gui-win-x64/ConvertSRTto3DASS-gui.exe
+
+      # ---- Update (or create) the rolling draft release ----
+      - name: Update Rolling Draft Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          draft: true
+          tag: rolling-draft
+          name: "Draft (latest build)"
+          body: "Latest binaries from commit ${{ github.sha }}. Edit tag, name, and notes before publishing."
+          artifacts: |
+            publish/linux-x64/ConvertSRTto3DASS-cli
+            publish/osx-x64/ConvertSRTto3DASS-cli
+            publish/osx-arm64/ConvertSRTto3DASS-cli
+            publish/win-x64/ConvertSRTto3DASS-cli.exe
+            publish/gui-win-x64/ConvertSRTto3DASS-gui.exe
